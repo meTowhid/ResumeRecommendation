@@ -1,12 +1,16 @@
 import pandas as pd
+from os import listdir
+from os.path import isfile, join
 
-def processFile(filename):
-    # filename = 'IT+Engineer_2.xlsx'
-    df = pd.read_excel(filename)
+def getDataFrameFromFile(filename):
+    df = pd.read_html(filename)
+    df = df[1]
+    df.columns = df.iloc[0]
+    df.drop(df.index[0], inplace=True)
+    return df
 
-    df.rename(columns={'Name': 'raw', 'Career Summary': 'last_company', 'Experience & Application Status': 'experience', 'Unnamed: 3': 'salary'}, inplace=True)
-
-    df['raw'][0].split('\n')
+def processDataFrame(df):
+    df.rename(columns={'Name': 'raw', 'Career Summary': 'last_company', 'Experience & Application Status': 'experience'}, inplace=True)
 
     d = df.raw.str.split('\n')
     df['name'] = d.str.get(0)
@@ -33,27 +37,29 @@ def processFile(filename):
                 'matching_rate']
     df.drop(columns='raw', inplace=True)
     df = df.reindex(headers, axis=1)
-    df.head()
 
     df.age = df.age.str.extract('(\d+\.?\d*)',expand=True).astype(float)
     df.last_company = df.last_company.str.split('\n').str.get(0)
     df.experience = df.experience.str.extract('(\d+)',expand=True).astype(int)
     df.salary = df.salary.str.extract('(\d+\,?\d*)',expand=True).get(0).str.replace(',','').astype(int)
     df.matching_rate = df.matching_rate.str.extract('(\d+)',expand=True).astype(int)
-    df.head()
-
-    df.to_excel(filename.replace('.xlsx','_out.xlsx'), index=False, columns=headers)
-
-
-def processAll():
-    for f in ['IT/IT+Engineer_%i.xlsx'% i for i in range(1,18)]:
-        processFile(f)
-
-def mergeFiles():
-    df = pd.DataFrame()
-    for f in ['IT/IT+Engineer_%i_out.xlsx'% i for i in range(1,18)]:
-        df = df.append(pd.read_excel(f), ignore_index=True)
     
-    df.to_excel('dataset.xlsx', index=False)
+    return df
 
-processFile('HR-Executive.xlsx') 
+def getFilePaths(folder):
+    f = [f for f in listdir(folder) if isfile(join(folder, f)) and f.endswith('.xls')]
+    f.sort()
+    print(f)
+    return [folder + '/' + file for file in f]
+
+def mergeFiles(folder):
+    df = pd.DataFrame()
+    for file in getFilePaths(folder):
+        df = df.append(getDataFrameFromFile(file), ignore_index=True)
+    df = processDataFrame(df)
+    df.to_excel('dataset_%s.xlsx' % folder, index=False)
+
+
+
+# mergeFiles('am')
+processDataFrame(getDataFrameFromFile('am/Accounts+Manager_01.xls'))
